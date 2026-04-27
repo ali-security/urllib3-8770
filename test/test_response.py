@@ -747,6 +747,41 @@ class TestResponse(object):
         with pytest.raises(StopIteration):
             next(stream)
 
+    def test_read_with_illegal_mix_decode_toggle(self):
+        compress = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS)
+        data = compress.compress(b"foo")
+        data += compress.flush()
+
+        fp = BytesIO(data)
+
+        resp = HTTPResponse(
+            fp, headers={"content-encoding": "deflate"}, preload_content=False
+        )
+
+        assert resp.read(1) == b"f"
+
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                r"Calling read\(decode_content=False\) is not supported after "
+                r"read\(decode_content=True\) was called"
+            ),
+        ):
+            resp.read(1, decode_content=False)
+
+    def test_read_with_mix_decode_toggle(self):
+        compress = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS)
+        data = compress.compress(b"foo")
+        data += compress.flush()
+
+        fp = BytesIO(data)
+
+        resp = HTTPResponse(
+            fp, headers={"content-encoding": "deflate"}, preload_content=False
+        )
+        resp.read(1, decode_content=False)
+        assert resp.read(1, decode_content=True) == b"o"
+
     def test_gzipped_streaming(self):
         compress = zlib.compressobj(6, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
         data = compress.compress(b"foo")

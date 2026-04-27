@@ -347,6 +347,13 @@ class TestPoolManager(object):
         merged = p._merge_pool_kwargs({"new_key": "value"})
         assert {"strict": True, "new_key": "value"} == merged
 
+    def test_merge_pool_kwargs_with_retry_object(self):
+        """Assert _merge_pool_kwargs works in the happy case"""
+        retries = retry.Retry(total=100)
+        p = PoolManager(retries=retries)
+        merged = p._merge_pool_kwargs({"new_key": "value"})
+        assert {"retries": retries, "new_key": "value"} == merged
+
     def test_merge_pool_kwargs_none(self):
         """Assert false-y values to _merge_pool_kwargs result in defaults"""
         p = PoolManager(strict=True)

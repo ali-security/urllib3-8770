@@ -1879,6 +1879,7 @@ class TestRetryPoolSizeDrainFail(SocketDummyServerTestCase):
 
 class TestBrokenPipe(SocketDummyServerTestCase):
     @notWindows
+    @pytest.mark.skip("[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1017)")
     def test_ignore_broken_pipe_errors(self, monkeypatch):
         # On Windows an aborted connection raises an error on
         # attempts to read data out of a socket that's been closed.

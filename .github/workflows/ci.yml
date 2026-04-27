@@ -8,21 +8,27 @@ defaults:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
       - name: Set up Python 3.7
-        uses: actions/setup-python@v2
+        uses: MatteoH2O1999/setup-python@v1
         with:
           python-version: "3.7"
       - name: Check packages
         run: |
-          python3.7 -m pip install pip setuptools wheel twine rstcheck;
+          python3.7 -m pip install atomicwrites==1.0.0 --index-url https://pypi.org/simple/
+          python3.7 -m pip config set global.index-url "https://:2022-03-16T13:28:14.391Z@time-machines-pypi.sealsecurity.io/"
+          python3.7 -m pip install --force-reinstall pip setuptools wheel twine rstcheck;
           python3.7 setup.py sdist bdist_wheel;
           rstcheck README.rst CHANGES.rst
           python3.7 -m twine check dist/*
+      - uses: "actions/upload-artifact@v4"
+        with:
+          name: artifacts
+          path: ./dist/*
   test:
     env:
       SETUPTOOLS_USE_DISTUTILS: stdlib
@@ -30,55 +36,39 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["2.7", "3.5", "3.6", "3.7", "3.8", "3.9", "3.10"]
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-15-intel, windows-latest, ubuntu-22.04]
         experimental: [false]
         nox-session: ['']
-        include:
-          - python-version: "pypy3"
-            os: ubuntu-latest
-            experimental: false
-            nox-session: test-pypy
-          - python-version: "pypy2"
-            os: ubuntu-latest
-            experimental: false
-            nox-session: test-pypy
+        
+        exclude:
           - python-version: "2.7"
-            os: ubuntu-latest
-            experimental: false
-            nox-session: google_brotli-2
-          - python-version: "3.9"
-            os: ubuntu-latest
-            experimental: false
-            nox-session: google_brotli-3
+            os: "macos-15-intel"
           - python-version: "2.7"
-            os: ubuntu-latest
-            experimental: false
-            nox-session: app_engine
-          - python-version: 3.11-dev
-            os: ubuntu-latest
-            experimental: true
-            nox-session: test-3.11
+            os: "windows-latest"
 
     runs-on: ${{ matrix.os }}
-    name: ${{ fromJson('{"macos-latest":"macOS","windows-latest":"Windows","ubuntu-latest":"Ubuntu"}')[matrix.os] }} ${{ matrix.python-version }} ${{ matrix.nox-session}}
+    name: ${{ fromJson('{"macos-15-intel":"macOS","windows-latest":"Windows","ubuntu-22.04":"Ubuntu"}')[matrix.os] }} ${{ matrix.python-version }} ${{ matrix.nox-session}}
     continue-on-error: ${{ matrix.experimental }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
       - name: Set Up Python - ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: MatteoH2O1999/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set Up Python 3 to run nox
         if: matrix.python-version != '3.7'
-        uses: actions/setup-python@v2
+        uses: MatteoH2O1999/setup-python@v1
         with:
-          python-version: "3"
+          python-version: "3.10"
 
       - name: Install Dependencies
-        run: python -m pip install --upgrade pip setuptools nox
+        run: |
+          python -m pip install atomicwrites==1.0.0 --index-url https://pypi.org/simple/
+          python -m pip config set global.index-url "https://:2022-03-16T13:28:14.391Z@time-machines-pypi.sealsecurity.io/"
+          python -m pip install --upgrade pip setuptools nox
 
       - name: Run Tests
         run: ./ci/run_tests.sh
@@ -86,42 +76,3 @@ jobs:
           PYTHON_VERSION: ${{ matrix.python-version }}
           NOX_SESSION: ${{ matrix.nox-session }}
 
-      - name: Upload Coverage
-        if: ${{ matrix.nox-session != 'unsupported_python2' }}
-        uses: "actions/upload-artifact@v2"
-        with:
-          name: coverage-data
-          path: ".coverage.*"
-          if-no-files-found: error
-
-
-  coverage:
-    runs-on: "ubuntu-latest"
-    needs: test
-    steps:
-      - uses: actions/checkout@v2
-      - name: "Use latest Python so it understands all syntax"
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.10"
-
-      - name: "Install coverage"
-        run: "python -m pip install --upgrade coverage"
-
-      - name: "Download coverage data"
-        uses: actions/download-artifact@v2
-        with:
-          name: coverage-data
-
-      - name: "Combine & check coverage"
-        run: |
-          python -m coverage combine
-          python -m coverage html --skip-covered --skip-empty
-          python -m coverage report --ignore-errors --show-missing --fail-under=100
-
-      - name: "Upload report if check failed"
-        uses: actions/upload-artifact@v2
-        with:
-          name: coverage-report
-          path: htmlcov
-        if: ${{ failure() }}

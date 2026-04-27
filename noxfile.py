@@ -16,8 +16,9 @@ SOURCE_FILES = [
 
 def tests_impl(session, extras="socks,secure,brotli"):
     # Install deps and the package itself.
-    session.install("-r", "dev-requirements.txt")
+    session.install("lazy-object-proxy==1.6.0; python_version < '3'", "atomicwrites==1.0.0", "--index-url", "https://pypi.org/simple/")
     session.install(".[{extras}]".format(extras=extras))
+    session.install("-r", "dev-requirements.txt")
 
     # Show the pip version.
     session.run("pip", "--version")
